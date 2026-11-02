@@ -174,8 +174,8 @@ on:
   workflow_dispatch:
 
 env:
-  BASE_URL: https://practicesoftwaretesting.com
-  API_URL: https://api.practicesoftwaretesting.com
+  BASE_URL: http://localhost:4200      # Toolshop tự dựng trong job, xem mục 4.3
+  API_URL: http://localhost:8091
   GITHUB_API_URL: https://api.github.com
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -189,12 +189,14 @@ jobs:
         browser: [chromium, firefox, webkit]
     steps:
       - uses: actions/checkout@v4
+      - run: docker compose -f toolshop/docker-compose.yml up -d
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
       - run: pip install -r requirements.txt
       - run: playwright install --with-deps ${{ matrix.browser }}
+      - run: bash toolshop/start.sh
       - run: >
           pytest --browser ${{ matrix.browser }}
           -n 2 --reruns 1 --reruns-delay 2
@@ -214,19 +216,42 @@ Mỗi dòng quan trọng và lý do:
 
 | Dòng | Vì sao |
 |---|---|
-| 3 trigger trong `on:` | Chạy khi vào `main`, trên mọi Pull Request, và bấm tay khi site Toolshop vừa chập chờn |
-| `env: BASE_URL, API_URL` | URL nằm ở cấu hình, không nằm trong code (đề trừ 1 điểm nếu viết cứng) |
+| 3 trigger trong `on:` | Chạy khi vào `main`, trên mọi Pull Request, và bấm tay khi cần chạy lại |
+| `env: BASE_URL, API_URL` | URL nằm ở cấu hình, không nằm trong code (đề trừ 1 điểm nếu viết cứng). Nhờ vậy cùng bộ test chạy được trên site công khai ở máy em và trên Toolshop tự dựng ở CI |
+| `docker compose ... up -d` | Khởi động Toolshop riêng của job ngay từ đầu, để giao diện biên dịch trong lúc job cài Python và trình duyệt |
+| `bash toolshop/start.sh` | Nạp dữ liệu mẫu mới và chờ tới khi UI, API trả lời. Chạy test trước lúc này thì đỏ hàng loạt |
 | `GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}` | GitHub tự cấp token cho mỗi lượt chạy. Máy chạy CI dùng chung IP với nhiều người, không có token thì test GitHub API bị chặn vì hết lượt |
 | `fail-fast: false` | Firefox đỏ không huỷ WebKit đang chạy, giữ đủ thông tin để chẩn đoán |
 | `--with-deps` | Cài thư viện hệ thống. Thiếu thì WebKit không chạy |
-| `-n 2` | Máy của GitHub có 2 nhân, Toolshop là site dùng chung |
+| `-n 2` | Chạy 2 test song song, vừa sức máy chạy của GitHub và Toolshop trong job |
 | `--reruns 1` | Chịu được một lần lỗi mạng. Không đặt cao hơn để che test sai |
 | `--tracing retain-on-failure`, `--screenshot only-on-failure` | Chỉ giữ bằng chứng của test đỏ, artifact gọn |
 | `if: always()` | Bước sau mặc định bị bỏ khi bước trước đỏ, mà test đỏ là lúc cần báo cáo nhất |
 | `name: report-${{ matrix.browser }}` | Ba job cùng tên `report` thì bước upload báo lỗi |
 | `retention-days: 7` | Không giữ artifact quá lâu |
 
-### 4.3 Chặn Pull Request khi đỏ
+### 4.3 Vì sao CI tự dựng Toolshop
+
+Site công khai practicesoftwaretesting.com đứng sau Cloudflare. Cloudflare coi trình duyệt không giao diện chạy từ máy chủ của GitHub là bot và trả về trang "Performing security verification" thay cho Toolshop. Khi thử chạy trên site công khai, 41/59 test Chromium đỏ vì trang này, Firefox và WebKit cũng thỉnh thoảng dính. Ở máy em thì không sao.
+
+Doanh nghiệp xử lý đúng như vậy: CI không test vào hệ thống dùng chung mà tự dựng một môi trường test riêng cho mỗi lượt chạy. Được ba điều:
+
+1. Không bị chặn, không phụ thuộc site công khai có sống hay không.
+2. Dữ liệu sạch mỗi lần: tài khoản mẫu không bị ai khoá, giỏ hàng không bị ai thêm đồ.
+3. Kết quả lặp lại được: đỏ là do code, không phải do mạng.
+
+Thư mục `toolshop/` trong repo lo việc này bằng Docker image chính chủ của Testsmith: `sprint5` là PROD, `sprint5-with-bugs` là BUGGY. Em không cần sửa gì trong đó. Nếu máy em có Docker, có thể dựng y như CI:
+
+```bash
+bash toolshop/start.sh                                   # PROD
+SPRINT=sprint5-with-bugs bash toolshop/start.sh          # hoặc BUGGY
+BASE_URL=http://localhost:4200 API_URL=http://localhost:8091 pytest
+docker compose -f toolshop/docker-compose.yml down       # tắt và xoá
+```
+
+Testsmith chỉ cho dùng mã nguồn này nội bộ, phi thương mại. Không mở Toolshop tự dựng ra Internet.
+
+### 4.4 Chặn Pull Request khi đỏ
 
 Settings, Branches, thêm quy tắc cho `main`:
 
@@ -243,7 +268,7 @@ git push -u origin feature/<tên>-<việc>
 # mở Pull Request trên GitHub, nhờ bạn review, chờ CI xanh, merge
 ```
 
-### 4.4 Đọc kết quả
+### 4.5 Đọc kết quả
 
 1. Tab Actions, mở lượt chạy, xem job nào đỏ.
 2. Kéo xuống phần Artifacts, tải `report-<trình duyệt>`.
@@ -257,7 +282,7 @@ Badge CI cho README:
 ![CI](https://github.com/<tài-khoản>/<repo>/actions/workflows/ci.yml/badge.svg)
 ```
 
-### 4.5 Không commit rác
+### 4.6 Không commit rác
 
 `.gitignore` tối thiểu:
 

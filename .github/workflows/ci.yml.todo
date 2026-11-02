@@ -6,8 +6,10 @@ on:
   # TODO: run on push to main, on every pull request, and manually (3 triggers)
 
 env:
-  BASE_URL: https://practicesoftwaretesting.com
-  API_URL: https://api.practicesoftwaretesting.com
+  # Each job starts its own Toolshop in Docker (toolshop/start.sh). The public site sits
+  # behind Cloudflare, which blocks browsers running on GitHub's servers.
+  BASE_URL: http://localhost:4200
+  API_URL: http://localhost:8091
   GITHUB_API_URL: https://api.github.com
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}   # GitHub gives every workflow this token
 
@@ -22,6 +24,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Start Toolshop containers
+        run: docker compose -f toolshop/docker-compose.yml up -d   # the UI compiles while we install
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -32,6 +37,9 @@ jobs:
 
       - name: Install browser
         run: playwright install --with-deps ${{ matrix.browser }}
+
+      - name: Wait for Toolshop and load seed data
+        run: bash toolshop/start.sh
 
       - name: Run tests
         # TODO: run only the smoke tests first (-m smoke), on the matrix browser,

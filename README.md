@@ -73,6 +73,7 @@ bai-doc/        bài đọc ôn tập mỗi buổi (đọc sau buổi học)
 docs/           mẫu BUG_REPORT.md
 .github/        workflows/ci.yml.todo có chỗ trống (buổi 3, điền xong đổi tên thành ci.yml), mẫu Pull Request
 tools/doctor.py kiểm tra máy trước buổi học
+toolshop/       Toolshop chạy bằng Docker cho CI (buổi 3): không cần sửa, xem bai-doc buổi 3 mục 4.3
 conftest.py     fixture dùng chung: api, github, test_user, auth_token, auth_headers, logged_in_page
 ```
 
@@ -100,11 +101,33 @@ $env:BASE_URL="https://with-bugs.practicesoftwaretesting.com"; $env:API_URL="htt
 
 Mở terminal mới (hoặc xoá 3 biến) để quay lại PROD.
 
-## 6. Bài đọc
+Trên CI không dùng site công khai: Cloudflare chặn trình duyệt chạy trên máy của GitHub. Mỗi job tự dựng Toolshop bằng Docker (thư mục `toolshop/`). Job BUGGY chỉ cần `SPRINT: sprint5-with-bugs` và `ROUTE_PREFIX: /#` trong `env:`.
+
+## 6. Nhận bài giải sau mỗi buổi
+
+Sau mỗi buổi, thầy đưa bài giải vào repo lớp. Repo của em tạo từ template nên không tự cập nhật; lấy đúng các tệp cần bằng git (chỉ những tệp được nêu bị thay, bản em tự làm vẫn còn trong lịch sử commit):
+
+```bash
+git remote add lop https://github.com/jameboykks/toolshop-practice.git   # làm một lần
+git fetch lop
+git checkout lop/main -- pages tests/buoi1/test_b1_pom.py               # ví dụ: sau buổi 1
+git commit -m "Take the session 1 reference solution"
+```
+
+| Sau buổi | Đường dẫn cần lấy |
+|---|---|
+| 1 | `pages tests/buoi1/test_b1_pom.py` |
+| 2 | `tests/buoi2` |
+| 3 | `tests/buoi3 .github/workflows/ci.yml` |
+| 4 | `clinic/test_clinic_fixed.py` |
+
+Muốn so bài của em với bài giải trước khi lấy: `git diff HEAD lop/main -- pages`.
+
+## 7. Bài đọc
 
 Thư mục `bai-doc/` có một bài đọc cho mỗi buổi (25 - 35 phút), cuối bài có câu hỏi tự kiểm tra. Đọc sau buổi học để ôn và trước khi làm phần đồ án tương ứng.
 
-## 7. Bị kẹt?
+## 8. Bị kẹt?
 
 - Đọc dòng `E ` trong output trước: nó nói locator nào, chờ gì, nhận được gì.
 - Chạy `--headed --slowmo 500` để xem.
