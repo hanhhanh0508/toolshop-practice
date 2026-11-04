@@ -105,12 +105,12 @@ Trên CI không dùng site công khai: Cloudflare chặn trình duyệt chạy t
 
 ## 6. Nhận bài giải sau mỗi buổi
 
-Sau mỗi buổi, thầy đưa bài giải vào repo lớp. Repo của em tạo từ template nên không tự cập nhật; lấy đúng các tệp cần bằng git (chỉ những tệp được nêu bị thay, bản em tự làm vẫn còn trong lịch sử commit):
+Sau mỗi buổi, thầy đưa bài giải vào nhánh `bai-giai` của repo lớp (nhánh `main` giữ nguyên bài để trống, để bạn nào tạo repo muộn vẫn có bài để làm). Repo của em tạo từ template nên không tự cập nhật; lấy đúng các tệp cần bằng git (chỉ những tệp được nêu bị thay, bản em tự làm vẫn còn trong lịch sử commit):
 
 ```bash
 git remote add lop https://github.com/jameboykks/toolshop-practice.git   # làm một lần
 git fetch lop
-git checkout lop/main -- pages tests/buoi1/test_b1_pom.py               # ví dụ: sau buổi 1
+git checkout lop/bai-giai -- pages tests/buoi1/test_b1_pom.py               # ví dụ: sau buổi 1
 git commit -m "Take the session 1 reference solution"
 ```
 
@@ -121,11 +121,15 @@ git commit -m "Take the session 1 reference solution"
 | 3 | `tests/buoi3 .github/workflows/ci.yml` |
 | 4 | `clinic/test_clinic_fixed.py` |
 
-Muốn so bài của em với bài giải trước khi lấy: `git diff HEAD lop/main -- pages`.
+Muốn so bài của em với bài giải trước khi lấy: `git diff HEAD lop/bai-giai -- pages`.
+
+Bài về nhà Sprint 1 (hạn đầu buổi 11/11): làm theo [docs/sprint-1.md](docs/sprint-1.md).
 
 ## 7. Bài đọc
 
 Thư mục `bai-doc/` có một bài đọc cho mỗi buổi (25 - 35 phút), cuối bài có câu hỏi tự kiểm tra. Đọc sau buổi học để ôn và trước khi làm phần đồ án tương ứng.
+
+Phiếu thực hành buổi 1 (các bài B1.0 - B1.8, làm lại ở nhà nếu nghỉ buổi): `bai-doc/buoi-1-phieu-thuc-hanh.md`.
 
 ## 8. Bị kẹt?
 
