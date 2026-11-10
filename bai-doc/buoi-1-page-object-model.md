@@ -1,13 +1,43 @@
 # Bài đọc buổi 1 - Page Object Model
 
-Đọc sau buổi học ngày 04/11 để ôn lại, và trước khi làm Sprint 1 của đồ án. Thời gian đọc khoảng 25 phút. Mọi đoạn code dưới đây đã chạy thật trên Toolshop.
+Bài đọc đi cùng slide buổi 1: các mục dưới đây theo đúng thứ tự slide, mỗi slide ghi "Bài đọc mục X" ở góc trên. Đọc lại sau buổi học ngày 04/11 và trước khi làm Sprint 1 của đồ án. Thời gian đọc khoảng 30 phút. Mọi đoạn code dưới đây đã chạy thật trên Toolshop.
 
 Sau bài này, em làm được:
 
 1. Giải thích Page Object Model (POM) giải quyết vấn đề gì và phải đánh đổi gì.
 2. Viết `BasePage` và các page object cho Toolshop đúng ba quy tắc.
-3. Chọn locator theo thứ tự ưu tiên và xử lý lỗi strict mode.
-4. Tránh các bẫy riêng của Toolshop.
+3. Giải thích repo được tổ chức thế nào để dùng lại được và dễ bảo trì.
+4. Chọn locator theo thứ tự ưu tiên và xử lý lỗi strict mode.
+5. Tránh các bẫy riêng của Toolshop.
+
+## 0. Cách chạy một bài và đọc kết quả
+
+Mở terminal ở thư mục repo, bật môi trường ảo (đầu dòng lệnh có `(.venv)` là đúng):
+
+```bash
+.venv\Scripts\activate          # Windows
+source .venv/bin/activate       # macOS, Linux
+```
+
+Ba lệnh dùng cả buổi:
+
+```bash
+pytest tests/buoi1 -k b1_1                          # một bài: b1_1 là một phần tên hàm test
+pytest tests/buoi1 -k b1_1 --headed --slowmo 300    # xem trình duyệt chạy chậm
+pytest tests/buoi1                                  # cả buổi
+```
+
+Mỗi bài đi một vòng: chạy thấy đỏ, sửa code trong `pages/`, lưu file, chạy lại thấy xanh.
+
+| Em thấy | Nghĩa là |
+|---|---|
+| `1 passed` | Bài đã xanh |
+| `NotImplementedError: B1.x` | Hàm trong `pages/` vẫn còn TODO |
+| `strict mode violation ... resolved to N elements` | Locator khớp nhiều phần tử (mục 6.3) |
+| `'NoneType' object has no attribute ...` | Hành động quên `return self` (mục 3.2) |
+| `TimeoutError` | Sai tên data-test, đang ở sai trang, hoặc site đang chậm |
+| `IndentationError` | Thụt lề lệch. Python dùng thụt lề thay cho dấu ngoặc |
+| Giỏ hàng trống khi mở | Mở giỏ trước khi thêm sản phẩm xong. Chờ badge đúng số lượng trước |
 
 ## 1. Vấn đề: locator nằm rải trong test
 
@@ -29,7 +59,7 @@ Test này chạy đúng. Vấn đề nằm ở chỗ nó trộn hai loại thôn
 - **Phần tử ở đâu, thao tác thế nào:** `get_by_test_id("product-name")`, `fill("2")`.
 - **Kết quả đúng là gì:** badge giỏ hàng phải là `2`.
 
-Viết 50 test như vậy thì `product-name` lặp lại hàng chục lần. Ngày Toolshop đổi tên thuộc tính đó, em phải sửa hàng chục chỗ, và chỉ cần sót một chỗ là test đỏ dù ứng dụng không có lỗi. Trong file mẫu, `product-name` xuất hiện ở 9 dòng.
+Viết 50 test như vậy thì `product-name` lặp lại hàng chục lần. Ngày Toolshop đổi tên thuộc tính đó, em phải sửa hàng chục chỗ, và chỉ cần sót một chỗ là test đỏ dù ứng dụng không có lỗi. Trong file mẫu, `product-name` xuất hiện ở 9 dòng code. Lệnh `grep -c` đếm ra 11 vì có thêm 2 dòng trong chú thích đầu file.
 
 ## 2. Page Object Model là gì
 
@@ -66,29 +96,41 @@ Toolshop đổi tên `product-name`: em sửa 2 dòng trong `pages/` (một ở 
 
 ### 3.1 Locator khai báo một lần, trong `__init__`
 
+Ví dụ lấy từ `pages/contact_page.py` (có sẵn trong repo):
+
 ```python
-class ProductPage(BasePage):
+class ContactPage(BasePage):
+    path = "/contact"
+
     def __init__(self, page):
         super().__init__(page)
-        self.name = page.get_by_test_id("product-name")
-        self.unit_price = page.get_by_test_id("unit-price")
-        self.quantity = page.get_by_test_id("quantity")
-        self.add_to_cart_button = page.get_by_test_id("add-to-cart")
+        self.first_name = page.get_by_test_id("first-name")
+        self.email = page.get_by_test_id("email")
+        self.subject = page.get_by_test_id("subject")
+        self.message = page.get_by_test_id("message")
 ```
+
+`super().__init__(page)` lấy phần chung từ BasePage (header, giỏ hàng, toast), rồi trang con khai báo phần riêng của nó.
 
 Locator của Playwright là "lười": khai báo chưa tìm phần tử nào cả. Chỉ khi em gọi `click()`, `fill()` hay `expect(...)` thì Playwright mới tìm, và tìm lại mỗi lần. Vì vậy khai báo hết trong `__init__` không tốn gì và không bị "cũ".
 
 ### 3.2 Action trả về một page object
 
 ```python
-def add_to_cart(self, quantity: int = 1):
-    if quantity != 1:
-        self.quantity.fill(str(quantity))
-    self.add_to_cart_button.click()
+def fill_form(self, first, last, email, subject, message):
+    self.first_name.fill(first)
+    self.last_name.fill(last)
+    self.email.fill(email)
+    self.subject.select_option(subject)
+    self.message.fill(message)
+    return self
+
+def submit(self):
+    self.submit_button.click()
     return self
 ```
 
-Ở lại trang cũ thì trả về `self`. Chuyển trang thì trả về page object của trang mới. Nhờ vậy test viết được thành chuỗi và đọc như kịch bản:
+Ở lại trang cũ thì trả về `self`, như hai hàm trên. Chuyển trang thì trả về page object của trang mới, như `go_to_cart()` trả về `CartPage`. Nhờ vậy test viết được thành chuỗi và đọc như kịch bản:
 
 ```python
 cart = (HomePage(page).open()
@@ -107,7 +149,7 @@ Có ba lý do:
 2. Giao diện đổi và kỳ vọng nghiệp vụ đổi là hai lý do khác nhau. Mỗi file chỉ nên có một lý do để sửa.
 3. Khi đỏ, lỗi chỉ thẳng vào test. Người đọc biết ngay test nào mong điều gì.
 
-**Chờ thì được.** `HomePage.open()` trong repo chờ danh sách sản phẩm đầu tiên tải xong rồi mới trả về. Đó là đồng bộ (đợi trang sẵn sàng), không phải kiểm chứng (khẳng định đúng sai). Lý do cần chờ: xem mục 6.
+**Chờ thì được.** `HomePage.open()` trong repo chờ danh sách sản phẩm đầu tiên tải xong rồi mới trả về. Đó là đồng bộ (đợi trang sẵn sàng), không phải kiểm chứng (khẳng định đúng sai). Lý do cần chờ: xem mục 7.
 
 Tự kiểm tra quy tắc bất cứ lúc nào:
 
@@ -151,9 +193,35 @@ Những điểm cần hiểu:
 - `import` đặt bên trong hàm để hai file không import vòng lẫn nhau.
 - Toast thông báo của Toolshop không có data-test, nên dùng vai trò ARIA: `get_by_role("alert")`.
 
-## 5. Chọn locator
+## 5. Khung kiểm thử: dùng lại được và dễ bảo trì
 
-### 5.1 Thứ tự ưu tiên
+Page object là một phần. Cả repo thực hành là một khung kiểm thử: mỗi loại thông tin nằm đúng một chỗ, nên mỗi khi có thay đổi chỉ sửa một chỗ.
+
+| Tệp, thư mục | Chứa gì | Sửa khi nào |
+|---|---|---|
+| `.env` | URL môi trường: `BASE_URL`, `API_URL`, `ROUTE_PREFIX` | Đổi môi trường, ví dụ PROD sang BUGGY |
+| `conftest.py` | Fixture dùng chung: `base_url`, cấu hình `data-test`, tài khoản test tạo qua API | Đổi cách chuẩn bị dữ liệu hay cấu hình chung |
+| `pytest.ini` | Marker (`smoke`, `ui`, `api`...) và tuỳ chọn mặc định của pytest | Thêm nhóm test mới |
+| `pages/` | Page object: locator và hành động | Giao diện đổi |
+| `tests/` | Kịch bản và kỳ vọng | Yêu cầu nghiệp vụ đổi |
+| `data/` | Dữ liệu cho test chạy nhiều bộ (JSON) | Thêm bộ dữ liệu |
+
+Ba ví dụ trong repo:
+
+1. **URL không nằm trong code.** `conftest.py` đọc `BASE_URL` từ `.env`, test chỉ viết `page.goto("/")`. Buổi 4 chạy trên BUGGY chỉ đổi `.env`, không sửa dòng code nào. Đồ án trừ 1 điểm nếu viết cứng URL.
+
+   ```python
+   @pytest.fixture(scope="session")
+   def base_url() -> str:
+       return _require_env("BASE_URL")
+   ```
+
+2. **Fixture dùng lại.** Test cần tài khoản chỉ cần khai báo tham số `test_user`. `conftest.py` tạo một tài khoản mới qua API, một lần cho cả phiên chạy, mọi test dùng chung.
+3. **Marker.** `pytest -m smoke` chỉ chạy nhóm test nhanh. Marker khai báo trong `pytest.ini`; tuỳ chọn `--strict-markers` báo lỗi ngay nếu gõ sai tên marker.
+
+## 6. Chọn locator
+
+### 6.1 Thứ tự ưu tiên
 
 | Ưu tiên | Locator | Khi nào dùng |
 |---|---|---|
@@ -175,7 +243,7 @@ def configure_playwright(playwright):
 
 Tìm locator nhanh: `playwright codegen https://practicesoftwaretesting.com`, bấm vào phần tử, Playwright đề xuất locator.
 
-### 5.2 Các data-test chính của Toolshop
+### 6.2 Các data-test chính của Toolshop
 
 | Trang | data-test |
 |---|---|
@@ -188,7 +256,7 @@ Tìm locator nhanh: `playwright codegen https://practicesoftwaretesting.com`, b�
 
 `search_completed`, `sorting_completed`, `filter_completed` là các phần tử Toolshop hiện ra khi tìm kiếm, sắp xếp, lọc xong. Chúng sinh ra để tester đồng bộ: đọc kết quả sau khi thấy chúng.
 
-### 5.3 Strict mode
+### 6.3 Strict mode
 
 ```
 Error: strict mode violation: get_by_test_id("product-name") resolved to 9 elements
@@ -202,7 +270,7 @@ Playwright từ chối thao tác khi locator khớp nhiều hơn một phần t�
 | Theo vị trí | `product_names.nth(2)` |
 | Theo nội dung | `product_names.filter(has_text="Hammer")` |
 
-## 6. Bẫy riêng của Toolshop
+## 7. Bẫy riêng của Toolshop
 
 | Bẫy | Biểu hiện | Cách tránh |
 |---|---|---|
@@ -213,17 +281,17 @@ Playwright từ chối thao tác khi locator khớp nhiều hơn một phần t�
 | Đăng nhập sai bằng tài khoản dùng chung | Toolshop đếm số lần đăng nhập sai và có thể khoá tài khoản, cả lớp mất tài khoản mẫu | Test đăng nhập sai dùng email không tồn tại, ví dụ `nobody-here@example.com` |
 | So số thực bằng `==` | `14.15 * 2` ra `28.299999...` | `pytest.approx(14.15 * 2)` |
 
-## 7. Lỗi thường gặp
+## 8. Đếm lại và tự kiểm tra
 
-| Thông báo lỗi | Nguyên nhân |
-|---|---|
-| `NotImplementedError: B1.x` | Hàm trong `pages/` vẫn còn TODO |
-| `strict mode violation ... resolved to N elements` | Locator khớp nhiều phần tử |
-| `'NoneType' object has no attribute ...` | Action quên `return self` |
-| `Timeout ... waiting for get_by_test_id("...")` | Sai tên data-test, hoặc đang ở sai trang |
-| Giỏ hàng trống khi mở | Mở giỏ trước khi request thêm sản phẩm xong. Chờ badge đúng số lượng trước |
+Cuối buổi, đếm lại số dòng phải sửa nếu `product-name` đổi tên:
 
-## 8. Tự kiểm tra
+```bash
+grep -rn "product-name" pages/ tests/buoi1/test_b1_pom.py
+```
+
+Kết quả: 2 dòng, đều trong `pages/`, 0 dòng trong test. Trước khi có page object là 9 dòng.
+
+Câu hỏi tự kiểm tra:
 
 1. Vì sao locator đặt trong `__init__` mà không đặt trong từng hàm action?
 2. Hành động nào nên trả về `self`, hành động nào trả về page object khác?
